@@ -68,7 +68,7 @@ export const voiceAPI = {
   downloadVoice: (filename) => {
     if (!filename) return null;
     const baseUrl = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
-    return `${baseUrl}/api/voice/download/${filename}`;
+    return `${baseUrl}/voice/download/${filename}`;
   },
   getVoices: () => api.get('/voice/voices'),
   healthCheck: () => api.get('/voice/health'),

@@ -68,6 +68,8 @@ export const voiceAPI = {
     const baseUrl =
       import.meta.env.VITE_API_BASE ||            // production URL (Render)
       (import.meta.env.DEV && "http://localhost:5000");  // only used while running `npm run dev`
+      console.log("Vercel Env →", import.meta.env.VITE_API_BASE);
+
     return `${baseUrl}/api/voice/download/${filename}`;
   },
   getVoices: () => api.get('/voice/voices'),

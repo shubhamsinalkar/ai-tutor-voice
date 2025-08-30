@@ -65,7 +65,9 @@ export const uploadAPI = {
 export const voiceAPI = {
   downloadVoice: (filename) => {
     if (!filename) return null;
-    const baseUrl = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+    const baseUrl =
+      import.meta.env.VITE_API_BASE ||            // production URL (Render)
+      (import.meta.env.DEV && "http://localhost:5000");  // only used while running `npm run dev`
     return `${baseUrl}/api/voice/download/${filename}`;
   },
   getVoices: () => api.get('/voice/voices'),

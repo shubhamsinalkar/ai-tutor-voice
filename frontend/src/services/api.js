@@ -1,7 +1,9 @@
 // src/services/api.js (UPDATED FOR YOUR BACKEND)
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE ||            // production URL (Render)
+  (import.meta.env.DEV && "http://localhost:5000");  // only used while running `npm run dev`
+console.log("Vercel Env →", import.meta.env.VITE_API_BASE);
 
 // Create axios instance
 const api = axios.create({
@@ -65,11 +67,7 @@ export const uploadAPI = {
 export const voiceAPI = {
   downloadVoice: (filename) => {
     if (!filename) return null;
-    const baseUrl =
-      import.meta.env.VITE_API_BASE ||            // production URL (Render)
-      (import.meta.env.DEV && "http://localhost:5000");  // only used while running `npm run dev`
-      console.log("Vercel Env →", import.meta.env.VITE_API_BASE);
-
+    const baseUrl = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
     return `${baseUrl}/api/voice/download/${filename}`;
   },
   getVoices: () => api.get('/voice/voices'),

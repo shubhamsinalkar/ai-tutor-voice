@@ -26,23 +26,25 @@ const Chat = () => {
   const loadChatHistory = async () => {
     try {
       const response = await chatAPI.getHistory({ page: 1, limit: 20 });
-      const conversations = response.data.history?.conversations || [];
-
-      const messagesArray = conversations.flatMap(conv => [
-        { 
-          role: 'user', 
-          content: conv.question, 
-          timestamp: conv.createdAt 
-        },
-        { 
-          role: 'assistant', 
-          content: conv.answer, 
-          timestamp: conv.createdAt,
-          voiceFilename: conv.voiceFile?.filename || null
-        }
-      ]);
       
-      setMessages(messagesArray);
+      // ✅ FIXED: Check backend response structure
+      if (response.data.success && response.data.history?.conversations) {
+        const conversations = response.data.history.conversations;
+        const messagesArray = conversations.flatMap(conv => [
+          { 
+            role: 'user', 
+            content: conv.question, 
+            timestamp: conv.createdAt 
+          },
+          { 
+            role: 'assistant', 
+            content: conv.answer, 
+            timestamp: conv.createdAt,
+            voiceFilename: conv.voiceFile?.filename || null
+          }
+        ]);
+        setMessages(messagesArray);
+      }
     } catch (error) {
       console.error('Error loading chat history:', error);
     }
@@ -50,37 +52,49 @@ const Chat = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    
+    // ✅ FIXED: Added loading check
+    if (!inputMessage.trim() || loading) return;
 
+    // ✅ FIXED: Store question before clearing input
+    const question = inputMessage.trim();
     const userMessage = { 
       role: 'user', 
-      content: inputMessage, 
+      content: question, 
       timestamp: new Date() 
     };
+    
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setLoading(true);
 
     try {
       const response = await chatAPI.askQuestion({
-        question: inputMessage,
+        question: question, // ✅ FIXED: Use stored question
+        fileId: null,
         includeVoice: audioEnabled,
-        fileId: null
+        
       });
+        console.log(response)
 
-      const aiData = response.data.data;
-      console.log('🔍 Full AI Response:', aiData);
-      console.log('🔍 Voice data:', aiData.voice);
-      
-      const aiMessage = {
-        role: 'assistant',
-        content: aiData.answer,
-        timestamp: new Date(),
-        voiceFilename: aiData.voice?.filename || null
-      };
-      
-      console.log('✅ AI Message created with voice filename:', aiMessage.voiceFilename);
-      setMessages(prev => [...prev, aiMessage]);
+      // ✅ FIXED: Check backend success first
+      if (response.data.success && response.data.data) {
+        const aiData = response.data.data;
+        console.log('🔍 Full AI Response:', aiData);
+        console.log('🔍 Voice data:', aiData.voice);
+        
+        const aiMessage = {
+          role: 'assistant',
+          content: aiData.answer,
+          timestamp: new Date(),
+          voiceFilename: aiData.voice?.filename || null
+        };
+        
+        console.log('✅ AI Message created with voice filename:', aiMessage.voiceFilename);
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error(response.data.message || 'Invalid response format');
+      }
     } catch (error) {
       console.error('❌ Error sending message:', error);
       const errorMessage = {
@@ -177,9 +191,10 @@ const Chat = () => {
             </div>
           )}
 
+          {/* ✅ FIXED: Better key and error handling */}
           {messages.map((message, index) => (
             <div
-              key={index}
+              key={`msg-${index}-${new Date(message.timestamp).getTime()}`}
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div className={`flex space-x-3 max-w-3xl ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
@@ -205,8 +220,8 @@ const Chat = () => {
                 }`}>
                   <p className="whitespace-pre-wrap">{message.content}</p>
                   
-                  {/* Audio Player - Now uses filename directly */}
-                  {message.voiceFilename && audioEnabled && (
+                  {/* Audio Player */}
+                  {message.voiceFilename && audioEnabled && !message.isError && (
                     <div className="mt-3">
                       <AudioPlayer 
                         filename={message.voiceFilename}
@@ -233,7 +248,7 @@ const Chat = () => {
                 </div>
                 <div className="flex-1 px-4 py-3 rounded-2xl bg-white shadow-sm border border-gray-100">
                   <div className="flex items-center space-x-2">
-                    <div className="loading-spinner w-4 h-4"></div>
+                    <div className="w-4 h-4 border-2 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
                     <span className="text-gray-600">AI is thinking...</span>
                   </div>
                 </div>
@@ -256,7 +271,7 @@ const Chat = () => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                 rows="1"
                 disabled={loading}
-                onKeyPress={(e) => {
+                onKeyDown={(e) => { // ✅ FIXED: Changed from onKeyPress
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSubmit(e);

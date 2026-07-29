@@ -45,13 +45,17 @@ const Upload = () => {
 
       try {
         const response = await uploadAPI.uploadFile(formData);
+        const uploadedFile = response.data.file;
         setUploadedFiles(prev => [...prev, {
-          id: response.data.fileId || response.data.id,
+          id: uploadedFile?.id,
           name: file.name,
           size: file.size,
           uploadedAt: new Date(),
           status: 'uploaded'
         }]);
+        if (uploadedFile?.id) {
+          localStorage.setItem('selectedStudyFileId', uploadedFile.id);
+        }
       } catch (error) {
         console.error('Upload error:', error);
         setError(error.response?.data?.message || 'Upload failed');

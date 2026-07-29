@@ -11,8 +11,8 @@ export const createAuthenticatedAudioUrl = async (filename) => {
 
   // ✅ FIXED: Consistent URL construction
   const baseUrl = import.meta.env.PROD
-    ? import.meta.env.VITE_API_BASE
-    : import.meta.env.VITE_API_URL;
+    ? (import.meta.env.VITE_API_BASE || window.location.origin)
+    : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
 
   // Mistake i was doing              
   //const baseUrl = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
@@ -85,7 +85,9 @@ export const revokeAudioUrl = (url) => {
 // ✅ ADDED: Helper function to test audio endpoint
 export const testAudioEndpoint = async () => {
   const token = localStorage.getItem('token');
-  const baseUrl = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+  const baseUrl = import.meta.env.PROD
+    ? (import.meta.env.VITE_API_BASE || window.location.origin)
+    : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
   const testUrl = `${baseUrl.replace(/\/+$/, '')}/api/voice/health`;
 
   try {

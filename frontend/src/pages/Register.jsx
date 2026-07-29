@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { User, Mail, Lock, CheckCircle, Eye, EyeOff, ArrowLeft, BookOpen } from 'lucide-react';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -37,8 +39,9 @@ const Register = () => {
         password: formData.password
       });
 
-      console.log('Registration successful:', response.data);
-      navigate('/login');
+      const { user, token } = response.data;
+      login(user, token);
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.response?.data?.message || 'Registration failed');

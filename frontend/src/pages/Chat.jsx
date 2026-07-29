@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { chatAPI, voiceAPI } from '../services/api';
+import { chatAPI, uploadAPI } from '../services/api';
 import { User, Bot, Send, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import AudioPlayer from '../components/AudioPlayer';
 
@@ -9,6 +9,8 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [studyFiles, setStudyFiles] = useState([]);
+  const [selectedFileId, setSelectedFileId] = useState('');
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -21,7 +23,35 @@ const Chat = () => {
 
   useEffect(() => {
     loadChatHistory();
+    loadStudyFiles();
   }, []);
+
+  const loadStudyFiles = async () => {
+    try {
+      const response = await uploadAPI.getMyFiles();
+      const files = response.data.files || [];
+      setStudyFiles(files);
+
+      const savedFileId = localStorage.getItem('selectedStudyFileId');
+      if (savedFileId && files.some((file) => String(file._id) === savedFileId)) {
+        setSelectedFileId(savedFileId);
+      } else {
+        localStorage.removeItem('selectedStudyFileId');
+      }
+    } catch (error) {
+      console.error('Error loading study materials:', error);
+    }
+  };
+
+  const handleStudyFileChange = (event) => {
+    const fileId = event.target.value;
+    setSelectedFileId(fileId);
+    if (fileId) {
+      localStorage.setItem('selectedStudyFileId', fileId);
+    } else {
+      localStorage.removeItem('selectedStudyFileId');
+    }
+  };
 
   const loadChatHistory = async () => {
     try {
@@ -71,7 +101,7 @@ const Chat = () => {
     try {
       const response = await chatAPI.askQuestion({
         question: question, // ✅ FIXED: Use stored question
-        fileId: null,
+        fileId: selectedFileId || null,
         includeVoice: audioEnabled,
         
       });
@@ -159,6 +189,27 @@ const Chat = () => {
           >
             {audioEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
           </button>
+        </div>
+        <div className="max-w-4xl mx-auto mt-3">
+          <label htmlFor="study-file" className="block text-xs font-medium text-gray-600 mb-1">
+            Answer source
+          </label>
+          <select
+            id="study-file"
+            value={selectedFileId}
+            onChange={handleStudyFileChange}
+            className="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">General AI answer (no study material)</option>
+            {studyFiles.map((file) => (
+              <option key={file._id} value={file._id}>
+                {file.originalName}
+              </option>
+            ))}
+          </select>
+          {selectedFileId && (
+            <p className="mt-1 text-xs text-indigo-600">Answers will use the selected PDF as the primary source.</p>
+          )}
         </div>
       </div>
 

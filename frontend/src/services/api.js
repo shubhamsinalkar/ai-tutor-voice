@@ -2,9 +2,11 @@
 import axios from 'axios';
 
 // Set origin without /api suffix
-const ORIGIN = import.meta.env.PROD
+const configuredOrigin = import.meta.env.PROD
   ? import.meta.env.VITE_API_BASE
   : import.meta.env.VITE_API_URL;
+const ORIGIN = (configuredOrigin || (import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin))
+  .replace(/\/+$/, '');
 
 // Mistake i was doing              
 //const baseUrl = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
@@ -12,7 +14,7 @@ const ORIGIN = import.meta.env.PROD
    true and BE req will go to render but in locally as api base is true(because it is present) so the req 
    was going the render and not on my BE localhost which was mismatch of BE request   */
 
-   const API_BASE_URL = `${ORIGIN}/api`;
+const API_BASE_URL = `${ORIGIN}/api`;
 
 console.log('🌍 API Base URL:', API_BASE_URL);
 

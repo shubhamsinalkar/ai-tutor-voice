@@ -1,27 +1,33 @@
 // services/pdfService.js
 import fs from 'fs';
-import pdfParse from 'pdf-parse';
-
-// Install pdf-parse first
-// npm install pdf-parse
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const processPDF = async (filePath) => {
   try {
     // Read the PDF file
     const dataBuffer = fs.readFileSync(filePath);
     
-    // Parse PDF content
-    const data = await pdfParse(dataBuffer);
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(dataBuffer) }).promise;
+    const pages = [];
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      pages.push(textContent.items.map((item) => item.str).join(' '));
+    }
+
+    const text = pages.join('\n').trim();
+    if (!text) {
+      throw new Error('No readable text was found in this PDF. Please upload a text-based PDF.');
+    }
     
     // Extract useful information
     const pdfInfo = {
-      text: data.text,
-      numPages: data.numpages,
-      info: data.info,
-      metadata: data.metadata,
-      wordCount: data.text.split(' ').length,
+      text,
+      numPages: pdf.numPages,
+      wordCount: text.split(/\s+/).filter(Boolean).length,
       // Simple topic extraction (we'll enhance with AI later)
-      topics: extractTopics(data.text)
+      topics: extractTopics(text)
     };
     
     return pdfInfo;

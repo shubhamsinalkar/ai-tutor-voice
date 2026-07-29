@@ -36,13 +36,7 @@ router.post('/ask', authenticateToken, async (req, res) => {
     console.log(`🚀 Processing question from ${user.email}: "${question}"`);
 
     // Get file content if fileId provided
-    let pdfContent = `
-    Machine Learning and Artificial Intelligence Fundamentals
-    Neural Networks: Computational models inspired by biological neural networks
-    Supervised Learning: Learning from labeled training examples
-    Unsupervised Learning: Discovering patterns in unlabeled data
-    Deep Learning: Multi-layer neural networks for complex pattern recognition
-    `;
+    let pdfContent = '';
 
     if (fileId) {
       const uploadedFile = await UploadedFile.findOne({ 
@@ -50,6 +44,14 @@ router.post('/ask', authenticateToken, async (req, res) => {
         userId: userId,
         status: 'ready'
       });
+
+      if (!uploadedFile) {
+        return res.status(404).json({ success: false, error: 'Selected study material was not found' });
+      }
+
+      if (!uploadedFile.processedData.fullText?.trim()) {
+        return res.status(422).json({ success: false, error: 'Selected PDF has no readable text' });
+      }
       
       if (uploadedFile && uploadedFile.processedData.fullText) {
         pdfContent = uploadedFile.processedData.fullText;
@@ -130,7 +132,8 @@ router.post('/ask', authenticateToken, async (req, res) => {
           quality: aiResponse.quality || 'high',
           personalized: aiResponse.personalized || true,
           readyForVoice: true,
-          voiceGenerated: !!voiceResponse
+          voiceGenerated: !!voiceResponse,
+          source: fileId ? 'uploaded-material' : 'general-ai'
         },
         voice: voiceResponse ? {
           filename: voiceResponse.filename,

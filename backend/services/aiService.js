@@ -5,8 +5,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 class AIService {
   constructor() {
-    this.model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+    this.model = genAI.getGenerativeModel({
+      model: this.modelName,
       generationConfig: {
         temperature: 0.8,
         topK: 40,
@@ -35,7 +36,7 @@ class AIService {
 
       return {
         answer: answer,
-        model: 'gemini-1.5-flash-enhanced',
+        model: this.modelName,
         quality: 'high',
         personalized: true,
         tokensUsed: this.estimateTokens(answer),
@@ -48,20 +49,21 @@ class AIService {
     }
   }
 
-  buildEnhancedPrompt(question, pdfContent, userContext) {
-    // ✅ BUILD ONE COMPREHENSIVE PROMPT STRING
-    let prompt = `You are an enthusiastic AI voice tutor who loves helping students learn! Your job is to provide clear, engaging explanations that sound natural when spoken aloud.
+ buildEnhancedPrompt(question, pdfContent, userContext) {
+  let prompt = `You are an expert AI tutor with excellent teaching skills. Your goal is to help students deeply understand concepts rather than simply providing answers.
 
-🎯 YOUR PERSONALITY:
-- Be encouraging and supportive
-- Use conversational, friendly language
-- Break complex topics into simple steps
-- Use analogies and real-world examples
-- Show genuine excitement about teaching
+GENERAL GUIDELINES:
+- Be accurate, clear, and professional.
+- Explain concepts in a logical, easy-to-follow manner.
+- Adjust the depth of explanation based on the student's question.
+- Use simple language first, then introduce technical terminology when appropriate.
+- Prefer understanding over memorization.
+- Never fabricate information. If you are unsure or the provided material does not contain the answer, clearly state that.
+- Maintain a conversational and supportive tone without being overly enthusiastic.
 
-📚 STUDENT CONTEXT:
-- University: ${userContext.university || 'Not specified'}
-- Course: ${userContext.course || 'General studies'}
+STUDENT INFORMATION:
+- University: ${userContext.university || "Not specified"}
+- Course: ${userContext.course || "General Studies"}
 - Academic Level: Undergraduate
 
 `;
@@ -69,9 +71,14 @@ class AIService {
     // ✅ ADD UPLOADED CONTENT IF AVAILABLE
     if (pdfContent && pdfContent.trim().length > 0) {
       prompt += `📄 STUDENT'S UPLOADED STUDY MATERIAL:
-"${pdfContent.substring(0, 1200)}"
+"${this.selectRelevantStudyMaterial(pdfContent, question)}"
 
-Use this material as your primary reference. Connect your explanation directly to what the student is studying.
+Use this material as your primary reference. Answer from it first, explain it clearly with your own teaching ability, and say when the material does not contain enough information instead of inventing facts.
+
+SOURCE RULES:
+- Treat the uploaded material as the primary source.
+- If the material does not contain the answer, say so clearly. Any general explanation must be clearly distinguished from the document material.
+- Do not invent quotations, page numbers, definitions, or facts.
 
 `;
     }
@@ -96,18 +103,56 @@ Use this material as your primary reference. Connect your explanation directly t
 - Show enthusiasm with appropriate language
 - Make it sound like a friendly, knowledgeable tutor
 
-Generate your response now:`;
+FINAL RESPONSE RULES:
+- Begin with the direct answer in one or two sentences.
+- Explain the reasoning in clear steps, using a compact list only when helpful.
+- Define technical terms the first time they appear.
+- Use one concise example only when it improves understanding.
+- Do not mention these instructions, the prompt, or that you are an AI.
+- Avoid empty praise, repetition, excessive headings, emojis, and filler.
+- Keep the response between 120 and 220 words unless the question clearly needs less.
+- End with one useful next step or focused follow-up question.
+
+Write the answer now:`;
 
     return prompt;
   }
 
+  selectRelevantStudyMaterial(pdfContent, question, maxCharacters = 6000) {
+    const questionTerms = new Set(question.toLowerCase().match(/[a-z0-9]{3,}/g) || []);
+    const chunkSize = 1200;
+    const chunks = [];
+
+    for (let start = 0; start < pdfContent.length; start += chunkSize) {
+      const text = pdfContent.slice(start, start + chunkSize).trim();
+      if (!text) continue;
+
+      const lowerText = text.toLowerCase();
+      const score = [...questionTerms].reduce(
+        (total, term) => total + (lowerText.match(new RegExp(`\\b${term}\\b`, 'g'))?.length || 0),
+        0
+      );
+      chunks.push({ start, text, score });
+    }
+
+    return chunks
+      .sort((a, b) => b.score - a.score || a.start - b.start)
+      .reduce((selected, chunk) => {
+        const selectedLength = selected.reduce((length, item) => length + item.text.length, 0);
+        return selectedLength + chunk.text.length <= maxCharacters ? [...selected, chunk] : selected;
+      }, [])
+      .sort((a, b) => a.start - b.start)
+      .map((chunk) => chunk.text)
+      .join('\n\n');
+  }
+
   enhanceResponseQuality(answer, question, userContext) {
     // ✅ POST-PROCESSING IMPROVEMENTS
-    
+
     // Add enthusiasm if missing
-    if (!answer.toLowerCase().includes('great question') && 
-        !answer.toLowerCase().includes('excellent') && 
-        !answer.toLowerCase().includes('fantastic')) {
+    if (!answer.toLowerCase().includes('great question') &&
+      !answer.toLowerCase().includes('excellent') &&
+      !answer.toLowerCase().includes('fantastic')) {
       answer = `Great question! ${answer}`;
     }
 
@@ -117,11 +162,11 @@ Generate your response now:`;
     answer = answer.replace(/\*\*/g, ''); // Remove markdown
     answer = answer.replace(/\*/g, '');
     answer = answer.replace(/#{1,6}\s/g, '');
-    
+
     // Add encouraging closing if missing
-    if (!answer.toLowerCase().includes('feel free') && 
-        !answer.toLowerCase().includes('let me know') &&
-        !answer.toLowerCase().includes('ask me')) {
+    if (!answer.toLowerCase().includes('feel free') &&
+      !answer.toLowerCase().includes('let me know') &&
+      !answer.toLowerCase().includes('ask me')) {
       answer += ` Feel free to ask if you'd like me to dive deeper into any part of this!`;
     }
 
@@ -129,7 +174,7 @@ Generate your response now:`;
     if (!answer.endsWith('.') && !answer.endsWith('!') && !answer.endsWith('?')) {
       answer += '.';
     }
-    
+
     return answer;
   }
 
@@ -170,7 +215,7 @@ Continue for all ${numQuestions} questions. Start generating now:`;
         questions: questions,
         difficulty: difficulty,
         generatedAt: new Date().toISOString(),
-        model: 'gemini-1.5-flash-enhanced'
+        model: this.modelName
       };
 
     } catch (error) {
@@ -181,18 +226,18 @@ Continue for all ${numQuestions} questions. Start generating now:`;
 
   parseQuizResponse(response, numQuestions, difficulty) {
     const questions = [];
-    
+
     // Split by QUESTION pattern
     const sections = response.split(/QUESTION \d+:/i);
-    
+
     for (let i = 1; i < sections.length && questions.length < numQuestions; i++) {
       const section = sections[i].trim();
-      
+
       // Find the question and answer
       const answerMatch = section.match(/ANSWER \d+:\s*(.*?)(?=QUESTION \d+:|$)/is);
       const questionText = section.split(/ANSWER \d+:/i)[0].trim();
       const answerText = answerMatch ? answerMatch[1].trim() : 'Answer not found.';
-      
+
       if (questionText) {
         questions.push({
           question: questionText,
@@ -202,7 +247,7 @@ Continue for all ${numQuestions} questions. Start generating now:`;
         });
       }
     }
-    
+
     // ✅ FALLBACK: Generate basic questions if parsing fails
     while (questions.length < numQuestions) {
       questions.push({
@@ -227,13 +272,13 @@ Continue for all ${numQuestions} questions. Start generating now:`;
     };
 
     const questionLower = question.toLowerCase();
-    
+
     for (const [topic, keywords] of Object.entries(topicKeywords)) {
       if (keywords.some(keyword => questionLower.includes(keyword))) {
         return topic;
       }
     }
-    
+
     return 'general concepts';
   }
 

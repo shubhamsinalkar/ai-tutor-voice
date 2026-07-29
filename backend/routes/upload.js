@@ -1,11 +1,11 @@
 // routes/upload.js (COMPLETE FILE UPLOAD IMPLEMENTATION)
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
 import fs from 'fs';
 import authenticateToken from '../middleware/auth.js';
 import User from '../models/User.js';
 import UploadedFile from '../models/UploadedFile.js';
+import { processPDF } from '../services/pdfService.js';
 
 const router = express.Router();
 
@@ -72,9 +72,10 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
 
     console.log(`📤 Processing file upload for ${user.email}: ${req.file.originalname}`);
 
-    // Extract text from PDF (simplified version)
-    const extractedText = await extractTextFromPDF(req.file.path);
-    const wordCount = extractedText.split(' ').length;
+    // Extract actual text from the uploaded PDF.
+    const pdfInfo = await processPDF(req.file.path);
+    const extractedText = pdfInfo.text;
+    const wordCount = pdfInfo.wordCount;
 
     // Create UploadedFile document
     const uploadedFile = new UploadedFile({
@@ -85,11 +86,11 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
       processedData: {
-        pages: 1, // Simplified - could use PDF parser for actual page count
+        pages: pdfInfo.numPages,
         wordCount: wordCount,
         textPreview: extractedText.substring(0, 500),
         fullText: extractedText,
-        topics: extractTopics(extractedText),
+        topics: pdfInfo.topics,
         subject: detectSubject(extractedText),
         difficulty: 'intermediate'
       },
@@ -248,49 +249,6 @@ router.delete('/:fileId', authenticateToken, async (req, res) => {
     });
   }
 });
-
-// Helper functions
-async function extractTextFromPDF(filePath) {
-  // Simplified text extraction - in production, use libraries like pdf-parse
-  try {
-    // For now, return mock extracted text
-    return `
-    Machine Learning and Artificial Intelligence Study Material
-    
-    This document covers fundamental concepts of AI and ML including:
-    - Neural Networks and Deep Learning
-    - Supervised and Unsupervised Learning
-    - Algorithms and Data Processing
-    - Model Training and Evaluation
-    
-    Content extracted from uploaded PDF: ${path.basename(filePath)}
-    `;
-  } catch (error) {
-    console.error('Text extraction failed:', error);
-    return 'Text extraction failed. Please ensure the PDF is readable.';
-  }
-}
-
-function extractTopics(text) {
-  const topicKeywords = {
-    'machine learning': ['machine learning', 'ml', 'supervised', 'unsupervised'],
-    'neural networks': ['neural network', 'neuron', 'deep learning', 'layer'],
-    'algorithms': ['algorithm', 'sorting', 'searching', 'optimization'],
-    'programming': ['code', 'programming', 'software', 'development'],
-    'mathematics': ['math', 'equation', 'formula', 'calculation']
-  };
-
-  const foundTopics = [];
-  const textLower = text.toLowerCase();
-
-  for (const [topic, keywords] of Object.entries(topicKeywords)) {
-    if (keywords.some(keyword => textLower.includes(keyword))) {
-      foundTopics.push(topic);
-    }
-  }
-
-  return foundTopics.length > 0 ? foundTopics : ['general'];
-}
 
 function detectSubject(text) {
   const subjects = {

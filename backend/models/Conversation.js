@@ -24,7 +24,7 @@ const conversationSchema = new mongoose.Schema({
   },
   aiModel: {
     type: String,
-    default: 'gemini-2.0-flash'
+    default: 'gemini-3.5-flash'
   },
   voiceGenerated: {
     type: Boolean,

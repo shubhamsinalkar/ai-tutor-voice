@@ -87,7 +87,7 @@ router.get('/test-connection', authenticateToken, async (req, res) => {
 // Get available Murf voices
 router.get('/voices', authenticateToken, async (req, res) => {
   try {
-    const voices = await voiceService.getAvailableVoices();
+    const voices = await voiceService.loadAvailableVoices();
     res.json({
       success: true,
       voices: voices,

@@ -1,6 +1,7 @@
 // routes/auth.js (UPDATED WITH DATABASE)
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 
 const router = express.Router();
@@ -9,6 +10,13 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, university, course } = req.body;
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database is unavailable right now. Please try again later.'
+      });
+    }
 
     // Validation
     if (!name || !email || !password) {
@@ -77,9 +85,24 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    if (error?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this email already exists'
+      });
+    }
+
+    if (error.name === 'MongooseError' || error.message?.includes('buffering timed out') || error.message?.includes('serverSelection')) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database is unavailable right now. Please try again later.'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Registration failed. Please try again.'
+      message: 'Registration failed. Please try again.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -88,6 +111,13 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database is unavailable right now. Please try again later.'
+      });
+    }
 
     if (!email || !password) {
       return res.status(400).json({

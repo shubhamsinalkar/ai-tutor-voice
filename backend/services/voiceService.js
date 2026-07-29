@@ -120,11 +120,11 @@ class VoiceService {
       console.log('🎤 Generating voice with Murf API...');
       console.log('🎭 Using voice ID:', voiceId);
 
-      // ✅ Use the /speech/generate-with-key endpoint (simpler authentication)
-      const response = await axios.post(`${this.baseURL}/speech/generate-with-key`, {
+      // Murf's current non-streaming text-to-speech endpoint.
+      const response = await axios.post(`${this.baseURL}/speech/generate`, {
         voiceId: voiceId,
         text: cleanText,
-        format: 'mp3'
+        format: 'MP3'
       }, {
         headers: {
           'api-key': this.apiKey,
@@ -213,17 +213,10 @@ class VoiceService {
   }
 
   generateFallbackVoice(text, subject) {
-    return {
-      success: true,
-      filename: `demo_voice_${Date.now()}.mp3`,
-      duration: this.estimateDuration(text),
-      size: text.length * 80,
-      voiceId: 'demo-fallback',
-      provider: 'Demo Fallback',
-      type: 'browser-tts',
-      fallback: true,
-      text: this.cleanTextForTTS(text)
-    };
+    // Do not advertise a fake audio file. The chat route treats a truthy value
+    // as downloadable audio, while browser TTS is not implemented in the UI.
+    console.warn('⚠️ Voice unavailable; returning the text response without audio.');
+    return null;
   }
 
   cleanTextForTTS(text) {

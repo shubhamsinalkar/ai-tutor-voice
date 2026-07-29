@@ -19,7 +19,7 @@ import { voiceService } from './services/voiceService.js';
 const app = express();
 
 // ✅ CONNECT TO DATABASE FIRST
-connectDB();
+const dbConnected = await connectDB();
 
 // Middleware
 app.use(cors());
@@ -88,7 +88,11 @@ app.listen(PORT, () => {
   console.log(`💾 Database: MongoDB Atlas`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
   console.log('🚀', '='.repeat(70));
-  console.log('✅ MongoDB Atlas Connection');
+  if (dbConnected) {
+    console.log('✅ MongoDB Atlas Connection');
+  } else {
+    console.log('⚠️ MongoDB Atlas connection unavailable');
+  }
   console.log('✅ User Authentication & Registration');
   console.log('✅ AI Intelligence (Google Gemini)');
   console.log('✅ Voice Generation (Murf AI)');
